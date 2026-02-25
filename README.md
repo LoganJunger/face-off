@@ -23,17 +23,13 @@ REPLICATE_API_KEY=your_key_here
 
 ## Running
 
-Start both the API proxy server and the Vite dev server:
+One command starts everything (API server + frontend) and opens your browser:
 
 ```bash
-# Terminal 1 — API server
-node server/index.js
-
-# Terminal 2 — Frontend
 npm run dev
 ```
 
-The Vite dev server proxies `/api/*` requests to the Express server on port 3001.
+The app opens at `http://localhost:5173`. Allow camera access when prompted.
 
 ## Tech stack
 

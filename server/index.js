@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import multer from 'multer';
 import cors from 'cors';
@@ -45,7 +46,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+if (!process.env.REPLICATE_API_KEY) {
+  console.error('Missing REPLICATE_API_KEY — create a .env file with your key');
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`API server ready on http://localhost:${PORT}`);
 });
