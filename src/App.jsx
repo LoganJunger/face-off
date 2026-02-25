@@ -38,6 +38,30 @@ export default function App() {
     }
   }, []);
 
+  // Convert blob to base64 data URI
+  const blobToDataUri = useCallback((blob) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }, []);
+
+  // Poll a prediction until it completes or fails
+  const pollPrediction = useCallback(async (predictionId) => {
+    const maxAttempts = 60; // ~5 minutes at 5s intervals
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      const res = await fetch(`/api/prediction/${predictionId}`);
+      if (!res.ok) throw new Error('Poll failed');
+      const data = await res.json();
+      if (data.status === 'succeeded') return data.transcript;
+      if (data.status === 'failed') throw new Error('Prediction failed');
+    }
+    throw new Error('Prediction timed out');
+  }, []);
+
   const handleClipReady = useCallback(
     async (blob) => {
       const clipIndex = clipOrderRef.current;
@@ -45,21 +69,26 @@ export default function App() {
       setPendingClips((n) => n + 1);
 
       try {
-        const formData = new FormData();
-        formData.append('video', blob, 'clip.webm');
+        // Convert video blob to base64 data URI
+        const dataUri = await blobToDataUri(blob);
 
+        // Start async prediction
         const res = await fetch('/api/transcribe', {
           method: 'POST',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video: dataUri }),
         });
 
         if (!res.ok) throw new Error('API error');
 
-        const data = await res.json();
+        const { id } = await res.json();
+
+        // Poll until result is ready
+        const transcript = await pollPrediction(id);
         const text =
-          typeof data.transcript === 'string'
-            ? data.transcript
-            : JSON.stringify(data.transcript);
+          typeof transcript === 'string'
+            ? transcript
+            : JSON.stringify(transcript);
 
         pendingResultsRef.current.set(clipIndex, text.trim() || null);
       } catch {
@@ -70,7 +99,7 @@ export default function App() {
         flushResults();
       }
     },
-    [flushResults]
+    [flushResults, blobToDataUri, pollPrediction]
   );
 
   const { isRecording, startRecording, stopRecording } = useClipRecorder({
